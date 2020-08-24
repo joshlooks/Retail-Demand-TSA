@@ -1,0 +1,161 @@
+---
+title: "Retail-Demand-Processing"
+author: "Josh Looker"
+date: "21/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(forecast)
+library(tidyverse)
+library(lubridate)
+setwd("C:\\Users\\jloo1\\Dropbox\\Projects\\Retail-Demand-Prediction")
+```
+
+#Initial Exploration
+
+```{r}
+df <- read_csv("online_retail_II.csv")
+head(df)
+```
+
+```{r}
+df$InvoiceDate <- as_datetime(df$InvoiceDate)
+df$year <- year(df$InvoiceDate)
+df$month <- month(df$InvoiceDate)
+df$week <- (isoweek(df$InvoiceDate))
+df$day <- day(df$InvoiceDate)
+df$weekday <- weekdays(df$InvoiceDate)
+head(df)
+```
+
+```{r}
+#Checking for data errors
+sapply(df,function(x) sum(is.na(x)))
+desc_na = df[is.na(df$Description),]
+cust_na = df[is.na(df$`Customer ID`),]
+df <- df[!is.na(df$Description),]
+sapply(df,function(x) sum(is.na(x)))
+cust_na = df[is.na(df$`Customer ID`),]
+```
+
+
+```{r}
+df_sales_volumes_day <- df %>% group_by(year,month,day) %>% summarise(volume = sum(Quantity)) %>% ungroup()
+df_sales_volumes_day$date <- as_date(with(df_sales_volumes_day,paste(year,month,day,sep="-")))
+df_sales_volumes_day$ydays <- yday(df_sales_volumes_day$date)
+df_sales_volumes_week <- df %>% group_by(year,week) %>% summarise(volume = sum(Quantity)) %>% ungroup()
+df_sales_volumes_month <- df %>% group_by(year,month) %>% summarise(volume = sum(Quantity)) %>% ungroup()
+```
+
+```{r}
+sales_day <- ggplot(data = df_sales_volumes_day, aes(x=ydays,y=volume,group = year, colour=as.factor(year)))+geom_line()+theme(axis.text.x=element_text(angle=90))+
+  labs(title = "Daily Total Sales Volume", x = "Day of the Year", y = "Total Sales Volume (Units)",colour = "Year")
+sales_week <- ggplot(data = df_sales_volumes_week, aes(x=week,y=volume,group = year, colour=as.factor(year)))+
+  geom_line()+geom_point()+theme(axis.text.x=element_text(angle=90))+
+  labs(title = "Weekly Total Sales Volume", x = "Week of the Year", y = "Total Sales Volume (Units)",colour = "Year")
+sales_month <- ggplot(data = df_sales_volumes_month, aes(x=month,y=volume,group = year, colour=as.factor(year)))+
+  geom_line()+geom_point()+theme(axis.text.x=element_text(angle=90))+
+  labs(title = "Monthly Total Sales Volume", x = "Month of the Year", y = "Total Sales Volume (Units)",colour = "Year")+
+  scale_x_continuous(breaks=c(1:12))
+
+sales_day
+sales_week
+sales_month
+```
+```{r}
+last_month = df[df$year==2011&df$month==11,]
+last_month$StockCode = as.factor(last_month$StockCode)
+last_month$`Customer ID`=as.factor(last_month$`Customer ID`)
+last_month_product <- last_month %>% group_by(StockCode) %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
+last_month_customer <- last_month %>% group_by('Customer ID') %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
+lm_product <- ggplot(last_month_product,aes(x="",y=revenue,fill=StockCode))+geom_point()
+```
+
+```{r}
+vwap = df %>% group_by(year,month) %>% summarise(vwap = sum(Quantity*Price)/sum(Quantity)) %>% ungroup()
+vwap_month <- ggplot(data = vwap, aes(x=month,y=vwap,group = year, colour=as.factor(year)))+
+  geom_line()+geom_point()+theme(axis.text.x=element_text(angle=90))+
+  labs(title = "Volume Weight Average Monthly Sale Price", x = "Month of the Year", y = "Total Sales Volume (Units)",colour = "Year")+
+  scale_x_continuous(breaks=c(1:12))
+vwap_month
+```
+
+
+
+```{r}
+df_neg = df[df$Quantity<0,]
+df_neg
+neg_non_Cancellation = df[!grepl('C',df$Invoice)&df$Quantity<0,]
+neg_non_Cancellation
+```
+
+```{r}
+weekly_sales = df %>% group_by(year,month,week) %>% summarise(Revenue=sum(Quantity*Price)) %>% ungroup()
+weekly_sales$Date = as.character.Date(with(weekly_sales,paste(year,month,week,sep="-")))
+sales <- ts(weekly_sales$Revenue,start = c(2009, 12),frequency = 52)
+ggtsdisplay(sales)
+```
+```{r}
+decomposition = decompose(sales)
+autoplot(decomposition)
+decomposition2 = decompose(sales, type="multiplicative")
+autoplot(decomposition2)
+```
+
+
+```{r}
+model = auto.arima(sales,stepwise=FALSE,parallel=TRUE)
+model
+checkresiduals(model)
+```
+
+```{r}
+model2 = auto.arima(sales,approximation=FALSE,seasonal=FALSE)
+model2
+checkresiduals(model2)
+```
+
+```{r}
+model3 = HoltWinters(sales)
+model3
+checkresiduals(model3)
+```
+
+
+```{r}
+model %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+```
+
+```{r}
+model2 %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+```
+
+```{r}
+model3 %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+```
+
+
+
+## R Markdown
+○ Last months’ revenue share by product and by customer
+3. You’ll note the dataset contains negative volumes, relating to sales returns. Some of
+these returns relate to products sold before the data collection date, thus should be
+filtered from the dataset before we use it for modelling.
+Describe and implement a logical way of performing this task
+The owner of the online retailer wants to know how much revenue to expect for this
+month (12/2011), to help him decide what sports car he buys his partner for
+Christmas.
+a) Outline a few different solutions you might suggest that solve this problem. Include in
+your description:
+○ What metrics/values you might want to use
+○ How you would aggregate those metrics
+○ What model/algorithm or logic you would use to make a prediction on them
+○ What uncertainties you might need to explore
+b) Select the method you think is the best approach, and explain why. Your justification
+should weigh up the effort required and expected accuracy.
+c) Show an implementation one of your solutions (doesn’t need to be your selected
+method), and show the final forecast alongside the historical time series.
+How confident are you of this forecast - do you back your prediction enough to
+recommend the new Ferrari?
