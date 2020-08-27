@@ -1,8 +1,8 @@
 ---
-title: "Retail-Demand-Processing"
-author: "Josh Looker"
-date: "21/08/2020"
-output: html_document
+title: "Code and Plots"
+output:
+  pdf_document: default
+  pdf: default
 ---
 
 ```{r setup, include=FALSE}
@@ -42,6 +42,7 @@ cust_na = df[is.na(df$`Customer ID`),]
 
 
 ```{r}
+#Getting daily, weekly, monthly sales data
 df_sales_volumes_day <- df %>% group_by(year,month,day) %>% summarise(volume = sum(Quantity)) %>% ungroup()
 df_sales_volumes_day$date <- as_date(with(df_sales_volumes_day,paste(year,month,day,sep="-")))
 df_sales_volumes_day$ydays <- yday(df_sales_volumes_day$date)
@@ -50,6 +51,7 @@ df_sales_volumes_month <- df %>% group_by(year,month) %>% summarise(volume = sum
 ```
 
 ```{r}
+#Plotting daily, weekly, monthly sales data
 sales_day <- ggplot(data = df_sales_volumes_day, aes(x=ydays,y=volume,group = year, colour=as.factor(year)))+geom_line()+theme(axis.text.x=element_text(angle=90))+
   labs(title = "Daily Total Sales Volume", x = "Day of the Year", y = "Total Sales Volume (Units)",colour = "Year")
 sales_week <- ggplot(data = df_sales_volumes_week, aes(x=week,y=volume,group = year, colour=as.factor(year)))+
@@ -64,16 +66,99 @@ sales_day
 sales_week
 sales_month
 ```
+
 ```{r}
+#Getting last month's data grouped by customers and products
 last_month = df[df$year==2011&df$month==11,]
 last_month$StockCode = as.factor(last_month$StockCode)
-last_month$`Customer ID`=as.factor(last_month$`Customer ID`)
-last_month_product <- last_month %>% group_by(StockCode) %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
-last_month_customer <- last_month %>% group_by('Customer ID') %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
-lm_product <- ggplot(last_month_product,aes(x="",y=revenue,fill=StockCode))+geom_point()
+last_month_product <- last_month %>% group_by(Description) %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
+last_month_customer <- last_month %>% group_by(`Customer ID`) %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
+last_month_customer <- last_month_customer %>% rename(`ID`="Customer ID",revenue="revenue")
+last_month_customer$ID = as.character(last_month_customer$ID)
 ```
 
 ```{r}
+#Plotting last month's product data
+last_month_product <- last_month_product[order(-last_month_product$revenue),]
+lmptop <- ggplot(data=last_month_product[c(1:5),], aes(x=reorder(Description,revenue), y=revenue, fill=reorder(Description,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Top 5 Products by Revenue",ylab="Revenue",fill="Description")
+lmptop2 <- ggplot(data=last_month_product[c(2:31),], aes(x=reorder(Description,revenue), y=revenue, fill=reorder(Description,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Top 30 Products (ignoring postage)",ylab="Revenue",fill="Description")
+lmptop
+lmptop2
+
+last_month_product <- last_month_product[order(last_month_product$revenue),]
+lmpbot <- ggplot(data=last_month_product[c(1:5),], aes(x=reorder(Description,revenue), y=revenue, fill=reorder(Description,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Bottom 5 Products by Revenue",ylab="Revenue",fill="Description")
+lmpbot2 <- ggplot(data=last_month_product[c(6:35),], aes(x=reorder(Description,revenue), y=revenue, fill=reorder(Description,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Bottom 30 Products by Revenue (ignoring payments and discounts)",ylab="Revenue",fill="Description")
+lmpbot3 <- ggplot(data=last_month_product[c(55:84),], aes(x=reorder(Description,revenue), y=revenue, fill=reorder(Description,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Bottom 30 Products with Positive Revenues",ylab="Revenue",fill="Description")
+lmpbot
+lmpbot2
+lmpbot3
+```
+
+```{r}
+#Plotting last month's customer data
+last_month_customer <- last_month_customer[order(-last_month_customer$revenue),]
+lmctop <- ggplot(data=last_month_customer[c(1:5),], aes(x=reorder(ID,revenue), y=revenue, fill=ID))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Top 5 Customers by Revenue",ylab="Revenue")
+lmctop2 <- ggplot(data=last_month_customer[c(3:30),], aes(x=reorder(ID,revenue), y=revenue, fill=ID))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Top 30 Customers by Revenue (ignoring unknowns)",ylab="Revenue")
+lmctop
+lmctop2
+
+last_month_customer <- last_month_customer[order(last_month_customer$revenue),]
+lmcbot <- ggplot(data=last_month_customer[c(1:35),], aes(x=reorder(ID,revenue), y=revenue, fill=ID))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Bottom 30 Customers by Revenue",ylab="Revenue")
+lmcbot2 <- ggplot(data=last_month_customer[c(51:80),], aes(x=reorder(ID,revenue), y=revenue, fill=ID))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Bottom 30 Customers by Revenue (ignoring negatives)",ylab="Revenue")
+lmcbot
+lmcbot2
+```
+
+```{r}
+#Considering consumer country spread
+lmcoun = last_month %>% group_by(Country) %>% summarise(revenue = sum(Quantity*Price)) %>% ungroup()
+lmcount <- ggplot(data=lmcoun, aes(x=reorder(Country,revenue), y=revenue, fill=reorder(Country,revenue)))+geom_bar(stat="identity")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  labs(title="Countries by Revenue",ylab="Revenue")
+lmcount
+```
+
+
+```{r}
+#Finding the volume weighted average monthly sale price and plotting
 vwap = df %>% group_by(year,month) %>% summarise(vwap = sum(Quantity*Price)/sum(Quantity)) %>% ungroup()
 vwap_month <- ggplot(data = vwap, aes(x=month,y=vwap,group = year, colour=as.factor(year)))+
   geom_line()+geom_point()+theme(axis.text.x=element_text(angle=90))+
@@ -82,80 +167,78 @@ vwap_month <- ggplot(data = vwap, aes(x=month,y=vwap,group = year, colour=as.fac
 vwap_month
 ```
 
-
-
 ```{r}
+#Investing negative quantities, returns and how to account for cancellations for orders before the data collection period
 df_neg = df[df$Quantity<0,]
-df_neg
-neg_non_Cancellation = df[!grepl('C',df$Invoice)&df$Quantity<0,]
-neg_non_Cancellation
+neg_Cancellation = df[grepl('C',df$Invoice),]
+non_na = df[!is.na(df$`Customer ID`),]
+test = non_na[non_na$`Customer ID`==14590,]
+test = non_na[non_na$`Customer ID`==12510,]
+likely_precollection = df[grepl('C',df$Invoice)&df$year<2010,]
+likely_precollection = likely_precollection[!is.na(likely_precollection$`Customer ID`),]
+dates = likely_precollection$InvoiceDate
+ID = likely_precollection$`Customer ID`
+cID = likely_precollection$Invoice
+before = numeric()
+for (i in 1:nrow(likely_precollection)){
+  if(sum((non_na$InvoiceDate<dates[i]&non_na$`Customer ID`==ID[i]))==0){
+    before[length(before)+1] = cID[i]
+  }
+}
+before = unique(before)
+df = df[!df$Invoice%in%before,]
+other_na = c("C489859","C489860","C489881","C490307")
+df = df[!df$Invoice%in%other_na,]
 ```
 
 ```{r}
-weekly_sales = df %>% group_by(year,month,week) %>% summarise(Revenue=sum(Quantity*Price)) %>% ungroup()
-weekly_sales$Date = as.character.Date(with(weekly_sales,paste(year,month,week,sep="-")))
-sales <- ts(weekly_sales$Revenue,start = c(2009, 12),frequency = 52)
-ggtsdisplay(sales)
-```
-```{r}
-decomposition = decompose(sales)
-autoplot(decomposition)
-decomposition2 = decompose(sales, type="multiplicative")
-autoplot(decomposition2)
+#Getting weekly revenue and plotting time-series data
+weekly_sales = df %>% group_by(year,week) %>% summarise(Revenue=log(sum(Quantity*Price))) %>% ungroup()
+weekly_sales$Date = as.character.Date(with(weekly_sales,paste(year,week,sep="-")))
+sales <- ts(weekly_sales$Revenue,start = c(2009, 49),frequency = 52)
+ggtsdisplay(sales,lag.max=60)
 ```
 
+```{r}
+#Getting monthly revenue and plotting time-series data
+df = df[c(1:1037028),]
+monthly_sales = df %>% group_by(year,month) %>% summarise(Revenue=log(sum(Quantity*Price))) %>% ungroup()
+monthly_sales$Date = as.character.Date(with(monthly_sales,paste(year,month,sep="-")))
+salesm <- ts(monthly_sales$Revenue,start = c(2009, 12),frequency = 12)
+ggtsdisplay(salesm,lag.max=24)
+```
 
 ```{r}
-model = auto.arima(sales,stepwise=FALSE,parallel=TRUE)
+#Getting mle fitted models for weekly sales and checking for best AIC value
+model = auto.arima(sales,approximation=FALSE,seasonal=FALSE)
 model
-checkresiduals(model)
-```
-
-```{r}
-model2 = auto.arima(sales,approximation=FALSE,seasonal=FALSE)
+model2 = arima(sales,order=c(5,0,0),seasonal=c(0,0,1))
 model2
+checkresiduals(model)
 checkresiduals(model2)
 ```
 
 ```{r}
-model3 = HoltWinters(sales)
-model3
-checkresiduals(model3)
+#Getting mle fitted models for monthly sales and checking a HoltWinters for comparison
+modelm1 = auto.arima(salesm,stepwise=FALSE,parallel=TRUE)
+modelm1
+modelm2 = HoltWinters(salesm)
+checkresiduals(modelm1)
+modelm3 = arima(salesm, order=c(1,0,0),seasonal=c(0,0,1))
+modelm3
+checkresiduals(modelm3)
+```
+
+```{r}
+#Forecasting with the fitted monthly time-series models
+modelm1 %>% forecast(h=6) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+modelm2 %>% forecast(h=6) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+modelm3 %>% forecast(h=6) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
 ```
 
 
 ```{r}
-model %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+#Forecasting with the fitted weekly time-series models
+model %>% forecast(h=24) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
+model2 %>% forecast(h=24) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
 ```
-
-```{r}
-model2 %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
-```
-
-```{r}
-model3 %>% forecast(h=12) %>% autoplot() + ylab("Revenue (British Pounds") + xlab("Time")
-```
-
-
-
-## R Markdown
-○ Last months’ revenue share by product and by customer
-3. You’ll note the dataset contains negative volumes, relating to sales returns. Some of
-these returns relate to products sold before the data collection date, thus should be
-filtered from the dataset before we use it for modelling.
-Describe and implement a logical way of performing this task
-The owner of the online retailer wants to know how much revenue to expect for this
-month (12/2011), to help him decide what sports car he buys his partner for
-Christmas.
-a) Outline a few different solutions you might suggest that solve this problem. Include in
-your description:
-○ What metrics/values you might want to use
-○ How you would aggregate those metrics
-○ What model/algorithm or logic you would use to make a prediction on them
-○ What uncertainties you might need to explore
-b) Select the method you think is the best approach, and explain why. Your justification
-should weigh up the effort required and expected accuracy.
-c) Show an implementation one of your solutions (doesn’t need to be your selected
-method), and show the final forecast alongside the historical time series.
-How confident are you of this forecast - do you back your prediction enough to
-recommend the new Ferrari?
